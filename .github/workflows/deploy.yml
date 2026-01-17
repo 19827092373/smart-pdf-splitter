@@ -29,9 +29,13 @@ jobs:
       - name: Deploy via SCP
         run: scp -v -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r ./* root@${{ secrets.SERVER_IP }}:/www/wwwroot/pdf.teacherlab.cn/
 
+      - name: Stop existing streamlit
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} 'pkill -9 -f "[s]treamlit.*app.py" 2>/dev/null || true'
+
       - name: Clean and restart service
         run: |
-          ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} 'cd /www/wwwroot/pdf.teacherlab.cn && rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh start.sh 2>/dev/null; pkill -9 -f "streamlit run app.py" 2>/dev/null || true; sleep 2; if [ -d venv ]; then source venv/bin/activate; fi; nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 & sleep 3; echo done'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} 'cd /www/wwwroot/pdf.teacherlab.cn && rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh start.sh 2>/dev/null; sleep 2; if [ -d venv ]; then source venv/bin/activate; fi; nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 & sleep 3; echo done'
 
       - name: Health check
         run: |
