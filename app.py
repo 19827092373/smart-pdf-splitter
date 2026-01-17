@@ -21,6 +21,17 @@ from core_logic import (
 
 st.set_page_config(page_title="智能教材切分工具", layout="wide")
 
+# ==================== 兼容性函数 ====================
+def compatible_data_editor(df, **kwargs):
+    """兼容旧版本 Streamlit 的数据编辑器"""
+    try:
+        # 尝试使用新版本的 data_editor
+        return st.data_editor(df, **kwargs)
+    except (AttributeError, TypeError):
+        # 旧版本：只显示数据框，返回原数据
+        st.dataframe(df)
+        return df
+
 # ==================== Session State ====================
 if 'current_step' not in st.session_state:
     st.session_state.current_step = 1
@@ -204,7 +215,7 @@ def render_step_navigation():
             elif is_enabled:
                 if st.button(label, type=button_type, key=f"nav_{step_num}"):
                     st.session_state.current_step = step_num
-                    st.rerun()
+                    st.experimental_rerun()
             else:
                 st.button(label, type=button_type, disabled=True, key=f"nav_disabled_{step_num}")
 
@@ -215,14 +226,14 @@ def render_navigation_buttons():
         if st.session_state.current_step > 1:
             if st.button("← 上一步"):
                 st.session_state.current_step -= 1
-                st.rerun()
+                st.experimental_rerun()
 
     with col3:
         next_step = st.session_state.current_step + 1
         if next_step <= 4 and is_step_enabled(next_step):
             if st.button("下一步 →", type="primary"):
                 st.session_state.current_step = next_step
-                st.rerun()
+                st.experimental_rerun()
 
 # ==================== 步骤1：上传PDF ====================
 def render_step_1():
@@ -261,7 +272,6 @@ def render_step_1():
             st.session_state.final_toc = None
 
         st.success(f"✓ 已上传：{uploaded_file.name}")
-        st.toast("📄 文件上传成功!", icon="✅")
         st.info("点击「下一步」继续")
 
 # ==================== 步骤2：预览定位 ====================
@@ -324,7 +334,7 @@ def render_step_2():
             with st.spinner("正在生成预览..."):
                 images = convert_pdf_to_images(st.session_state.pdf_path, 1, 10)
                 st.session_state.preview_images = images
-            st.rerun()
+            st.experimental_rerun()
 
     with col2:
         if st.session_state.preview_images:
@@ -412,8 +422,7 @@ def render_step_3():
                             st.session_state.toc_data = parsed_data
                             progress_container.success("✅ 分析完成!")
                             st.success(f"成功识别 {len(parsed_data)} 个章节！")
-                            st.toast(f"🤖 成功识别 {len(parsed_data)} 个章节!", icon="✅")
-                            st.rerun()
+                            st.experimental_rerun()
                         else:
                             st.error("未能解析出有效的 JSON 数据。")
 
@@ -537,7 +546,7 @@ def render_step_3():
         with col_a:
             if st.button("🔄 重置为默认提示词"):
                 st.session_state.ai_prompt = default_prompt
-                st.rerun()
+                st.experimental_rerun()
         with col_b:
             st.info(f"提示词长度: {len(st.session_state.ai_prompt)} 字符")
 
@@ -551,16 +560,7 @@ def render_step_3():
             df['page'] = pd.to_numeric(df['page'], errors='coerce').fillna(0).astype(int)
             df['pdf_start_page'] = df['page'] + st.session_state.calculated_offset
 
-        edited_df = st.data_editor(
-            df,
-            num_rows="dynamic",
-            width='stretch',
-            column_config={
-                "title": "章节标题",
-                "page": st.column_config.NumberColumn("书本页码", min_value=1, step=1),
-                "pdf_start_page": st.column_config.NumberColumn("PDF起始页", disabled=True)
-            }
-        )
+        edited_df = compatible_data_editor(df)
         
         # Convert back to dict, ensuring page is int
         final_toc = edited_df.to_dict('records')
@@ -748,22 +748,7 @@ def render_step_4():
     
     st.info("💡 提示：您可以点击行号左侧的垃圾桶图标 🗑️ 删除不需要的章节行")
     
-    edited_df = st.data_editor(
-        df_editable,
-        num_rows="dynamic",  # 允许添加和删除行
-        hide_index=True,
-        column_config={
-            "序号": st.column_config.NumberColumn("序号", width="small", disabled=True),
-            "状态": st.column_config.TextColumn("状态", width="small", disabled=True),
-            "章节标题": st.column_config.TextColumn("章节标题", width="large", disabled=True),
-            "文件名": st.column_config.TextColumn("文件名", width="medium", help="编辑文件名（不含.pdf后缀）"),
-            "PDF起始页": st.column_config.NumberColumn("起始页", min_value=1, max_value=total_pdf_pages, step=1, width="small", help="PDF页码"),
-            "PDF结束页": st.column_config.NumberColumn("结束页", min_value=1, max_value=total_pdf_pages, step=1, width="small", help="PDF页码"),
-            "页数": st.column_config.NumberColumn("页数", width="small", disabled=True),
-            "错误信息": st.column_config.TextColumn("错误信息", width="medium", disabled=True),
-        },
-        key=editor_key
-    )
+    edited_df = compatible_data_editor(df_editable)
     
     # 更新页数列（基于编辑后的起始页和结束页）
     edited_df['页数'] = edited_df['PDF结束页'] - edited_df['PDF起始页'] + 1
@@ -953,7 +938,7 @@ def render_step_4():
                                         except Exception as e:
                                             st.text(f"ZIP 读取失败: {e}")
                                     
-                                    st.toast("✂️ PDF 切分完成!", icon="✅")
+                                    st.success("✂️ PDF 切分完成!")
                     # Do not rerun here to avoid clearing the file list display
                 else:
                     st.warning("没有生成任何文件")
@@ -1204,7 +1189,7 @@ with st.sidebar:
                 st.session_state.api_key = ''
                 st.session_state.base_url = ''
                 st.session_state.model_name = config["models"][0]
-                st.rerun()
+                st.experimental_rerun()
 
         # 在 api_key 输入后添加测试按钮
         if api_key:
