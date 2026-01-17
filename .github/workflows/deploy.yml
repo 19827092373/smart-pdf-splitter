@@ -43,53 +43,47 @@ jobs:
             rm -rf sync.sh
             rm -rf update.sh
 
-      - name: Install dependencies
+      - name: Create and run startup script
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: false
           script: |
+            cat > /www/wwwroot/pdf.teacherlab.cn/start.sh << 'SCRIPT'
+            #!/bin/bash
             cd /www/wwwroot/pdf.teacherlab.cn
-            echo "当前 Python 版本: $(python3 --version)"
-            python3 -m pip install --upgrade pip --quiet
-            if ! command -v pdftoppm &> /dev/null; then
-              echo "📦 安装 Poppler..."
-              yum install -y poppler-utils || apt-get install -y poppler-utils
-            fi
-            echo "📦 安装项目依赖..."
-            python3 -m pip install streamlit==1.10.0 pypdf==3.17.4 pdf2image==1.16.3 requests==2.27.1 pandas==1.1.5 --quiet
-            echo "✅ 依赖安装完成"
-
-      - name: Start Streamlit
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 60s
-          command_timeout: 30s
-          script: |
-            cd /www/wwwroot/pdf.teacherlab.cn
-            ps aux | grep "[s]treamlit" | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true
-            sleep 1
-            nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 </dev/null >streamlit.log 2>&1 &
+            pkill -9 -f "streamlit run app.py" 2>/dev/null
             sleep 2
-            echo "done"
+            export PATH=/usr/local/bin:$PATH
+            if [ -d "venv" ]; then
+              source /www/wwwroot/pdf.teacherlab.cn/venv/bin/activate
+            fi
+            python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 >> streamlit.log 2>&1
+            SCRIPT
+            chmod +x /www/wwwroot/pdf.teacherlab.cn/start.sh
+            pkill -9 -f "streamlit run app.py" 2>/dev/null || true
+            cd /www/wwwroot/pdf.teacherlab.cn
+            nohup ./start.sh &
+            echo "Started"
 
-      - name: Health check
+      - name: Wait and health check
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 60s
-          command_timeout: 30s
           script: |
-            sleep 5
-            if curl -sf http://localhost:8501/_stcore/health; then
-              echo "✅ OK"
-            else
-              cat /www/wwwroot/pdf.teacherlab.cn/streamlit.log 2>/dev/null | tail -30
-              exit 1
-            fi
+            sleep 10
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:8501/_stcore/health >/dev/null 2>&1; then
+                echo "✅ 服务已启动"
+                exit 0
+              fi
+              echo "等待服务启动... $i"
+              sleep 3
+            done
+            echo "启动日志:"
+            tail -50 /www/wwwroot/pdf.teacherlab.cn/streamlit.log 2>/dev/null
+            exit 1
