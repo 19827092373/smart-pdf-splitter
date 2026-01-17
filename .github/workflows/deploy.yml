@@ -57,7 +57,7 @@ jobs:
             echo "当前 Python 版本: $PYTHON_VERSION"
             
             # 检查并升级 pip
-            pip3 install --upgrade pip setuptools wheel --quiet
+            pip3 install --upgrade pip setuptools wheel --quiet || python3 -m pip install --upgrade pip setuptools wheel --quiet
             
             # 安装系统依赖（Poppler）
             if ! command -v pdftoppm &> /dev/null; then
@@ -66,11 +66,14 @@ jobs:
               apt-get install -y poppler-utils --quiet
             fi
             
-            # 安装项目依赖（使用 pip3，不指定版本限制）
+            # 安装项目依赖（尝试安装最新版本，失败则安装兼容版本）
             echo "📦 安装项目依赖..."
-            pip3 install streamlit pypdf pdf2image requests pandas --quiet || {
-              echo "⚠️  使用兼容版本安装..."
-              pip3 install streamlit pypdf pdf2image requests pandas --upgrade --quiet
+            pip3 install -r requirements.txt --quiet 2>&1 | tee /tmp/install.log || {
+              echo "⚠️  标准版本安装失败，尝试安装兼容版本..."
+              pip3 install streamlit pypdf pdf2image requests pandas --quiet || {
+                echo "⚠️  安装兼容版本..."
+                pip3 install "streamlit>=1.0.0" "pypdf>=2.0.0" "pdf2image>=1.0.0" "requests>=2.0.0" "pandas>=1.0.0" --quiet
+              }
             }
             
             # 检查部署方式并更新
