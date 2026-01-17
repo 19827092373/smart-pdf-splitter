@@ -200,27 +200,27 @@ def render_step_navigation():
             
             # Render as button (disabled for current/locked, clickable for others)
             if is_current:
-                st.button(label, type=button_type, use_container_width=True, disabled=True, key=f"nav_current_{step_num}")
+                st.button(label, type=button_type, disabled=True, key=f"nav_current_{step_num}")
             elif is_enabled:
-                if st.button(label, type=button_type, use_container_width=True, key=f"nav_{step_num}"):
+                if st.button(label, type=button_type, key=f"nav_{step_num}"):
                     st.session_state.current_step = step_num
                     st.rerun()
             else:
-                st.button(label, type=button_type, use_container_width=True, disabled=True, key=f"nav_disabled_{step_num}")
+                st.button(label, type=button_type, disabled=True, key=f"nav_disabled_{step_num}")
 
 def render_navigation_buttons():
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col1:
         if st.session_state.current_step > 1:
-            if st.button("← 上一步", use_container_width=True):
+            if st.button("← 上一步"):
                 st.session_state.current_step -= 1
                 st.rerun()
 
     with col3:
         next_step = st.session_state.current_step + 1
         if next_step <= 4 and is_step_enabled(next_step):
-            if st.button("下一步 →", type="primary", use_container_width=True):
+            if st.button("下一步 →", type="primary"):
                 st.session_state.current_step = next_step
                 st.rerun()
 
@@ -318,7 +318,7 @@ def render_step_2():
         st.success(f"✓ 页码偏移量: **{calculated_offset}**")
         st.caption(f"公式: PDF页码 = 书本页码 + {calculated_offset}")
 
-        if st.button("生成预览图", use_container_width=True):
+        if st.button("生成预览图"):
             # State is already updated via keys
 
             with st.spinner("正在生成预览..."):
@@ -334,9 +334,9 @@ def render_step_2():
             for i in range(min(5, len(st.session_state.preview_images))):
                 with row1_cols[i]:
                     img = st.session_state.preview_images[i]
-                    st.image(img, caption=f"Page {i+1}", use_container_width=True)
+                    st.image(img, caption=f"Page {i+1}")
                     with st.expander(f"🔍 放大"):
-                        st.image(img, use_container_width=True)
+                        st.image(img)
 
             # Second row: pages 6-10
             if len(st.session_state.preview_images) > 5:
@@ -344,9 +344,9 @@ def render_step_2():
                 for i in range(5, min(10, len(st.session_state.preview_images))):
                     with row2_cols[i-5]:
                         img = st.session_state.preview_images[i]
-                        st.image(img, caption=f"Page {i+1}", use_container_width=True)
+                        st.image(img, caption=f"Page {i+1}")
                         with st.expander(f"🔍 放大"):
-                            st.image(img, use_container_width=True)
+                            st.image(img)
         else:
             st.info("点击左侧「生成预览图」按钮查看 PDF 页面")
 
@@ -375,7 +375,7 @@ def render_step_3():
     if not api_key:
         st.error("请先在侧边栏配置 API Key")
     else:
-        if st.button("🚀 开始 AI 识别", type="primary", use_container_width=True):
+        if st.button("🚀 开始 AI 识别", type="primary"):
                 progress_container = st.empty()
                 progress_container.info("🔄 正在将目录页面发送至 AI...")
                 
@@ -535,7 +535,7 @@ def render_step_3():
         
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("🔄 重置为默认提示词", use_container_width=True):
+            if st.button("🔄 重置为默认提示词"):
                 st.session_state.ai_prompt = default_prompt
                 st.rerun()
         with col_b:
@@ -751,7 +751,6 @@ def render_step_4():
     edited_df = st.data_editor(
         df_editable,
         num_rows="dynamic",  # 允许添加和删除行
-        use_container_width=True,
         hide_index=True,
         column_config={
             "序号": st.column_config.NumberColumn("序号", width="small", disabled=True),
@@ -861,7 +860,7 @@ def render_step_4():
     if updated_invalid_count > 0:
         st.warning("⚠️ 请先修复所有错误章节后再进行切分")
     
-    if st.button("开始切分 PDF", type="primary", use_container_width=True, disabled=updated_invalid_count > 0 or len(edited_valid_chapters) == 0):
+    if st.button("开始切分 PDF", type="primary", disabled=updated_invalid_count > 0 or len(edited_valid_chapters) == 0):
         with st.spinner("正在切分..."):
             with tempfile.TemporaryDirectory() as temp_out_dir:
                 # 使用编辑后的章节数据，直接使用 PDF 页码范围进行切分
@@ -941,7 +940,7 @@ def render_step_4():
                                     # Display file list
                                     with st.expander("📁 查看生成的文件列表", expanded=True):
                                         file_list_data = [{"序号": i+1, "文件名": name} for i, name in enumerate(st.session_state.zip_file_list)]
-                                        st.dataframe(pd.DataFrame(file_list_data), use_container_width=True, hide_index=True)
+                                        st.dataframe(pd.DataFrame(file_list_data), hide_index=True)
                                     
                                     # Display ZIP debug info (collapsed)
                                     with st.expander("🔍 ZIP 校验信息", expanded=False):
@@ -969,8 +968,7 @@ def render_step_4():
             label="下载切分好的文件包 (ZIP)",
             data=st.session_state.zip_bytes,
             file_name=download_name,
-            mime="application/zip",
-            use_container_width=True
+            mime="application/zip"
         )
         
         if st.session_state.zip_file_list:
@@ -1187,7 +1185,7 @@ with st.sidebar:
         
         col_clear1, col_clear2 = st.columns(2)
         with col_clear1:
-            if st.button("🗑️ 清除保存的设置", use_container_width=True, help="清除浏览器本地保存的API设置"):
+            if st.button("🗑️ 清除保存的设置", help="清除浏览器本地保存的API设置"):
                 clear_settings_js = """
                 <script>
                 (function() {
@@ -1212,7 +1210,7 @@ with st.sidebar:
         if api_key:
             # Add some spacing
             st.markdown("")
-            if st.button("🔌 测试连接", use_container_width=True):
+            if st.button("🔌 测试连接"):
                 with st.spinner("正在测试..."):
                     from core_logic import call_vision_api
                     # Use a very small text-only challenge for the vision API (some support text-only, others need image)
