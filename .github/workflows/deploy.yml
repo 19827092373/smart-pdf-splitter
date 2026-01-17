@@ -19,14 +19,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null
+          echo "SSH key fingerprint:"
+          ssh-keygen -l -f ~/.ssh/id_rsa || echo "Warning: Could not read key fingerprint"
+          echo "Adding host to known_hosts..."
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>&1 || echo "Warning: ssh-keyscan failed"
+          echo "Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@${{ secrets.SERVER_IP }} 'echo SSH connection successful' || echo "SSH test failed"
 
       - name: Deploy via SCP
-        run: scp -o StrictHostKeyChecking=no -r ./* root@${{ secrets.SERVER_IP }}:/www/wwwroot/pdf.teacherlab.cn/
+        run: scp -v -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r ./* root@${{ secrets.SERVER_IP }}:/www/wwwroot/pdf.teacherlab.cn/
 
       - name: Clean and restart service
         run: |
-          ssh -o StrictHostKeyChecking=no root@${{ secrets.SERVER_IP }} 'cd /www/wwwroot/pdf.teacherlab.cn && rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh start.sh 2>/dev/null; pkill -9 -f "streamlit run app.py" 2>/dev/null || true; sleep 2; if [ -d venv ]; then source venv/bin/activate; fi; nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 & sleep 3; echo done'
+          ssh -vvv -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} 'cd /www/wwwroot/pdf.teacherlab.cn && rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh start.sh 2>/dev/null; pkill -9 -f "streamlit run app.py" 2>/dev/null || true; sleep 2; if [ -d venv ]; then source venv/bin/activate; fi; nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 & sleep 3; echo done'
 
       - name: Health check
         run: |
