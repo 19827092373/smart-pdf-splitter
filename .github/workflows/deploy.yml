@@ -14,77 +14,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts
+
       - name: Deploy via SCP
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "."
-          target: "/www/wwwroot/pdf.teacherlab.cn"
-          rm: false
-          overwrite: true
-          strip_components: 0
+        run: |
+          scp -r . root@${{ secrets.SERVER_IP }}:/www/wwwroot/pdf.teacherlab.cn
       
       - name: Clean up unnecessary files on server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /www/wwwroot/pdf.teacherlab.cn
-            rm -rf .github
-            rm -rf .git
-            rm -rf .gitignore
-            rm -rf .claude
-            rm -rf *.md
-            rm -rf deploy.sh
-            rm -rf sync.sh
-            rm -rf update.sh
+        run: |
+          ssh root@${{ secrets.SERVER_IP }} "cd /www/wwwroot/pdf.teacherlab.cn && rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh"
 
       - name: Create and run startup script
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 60s
-          command_timeout: 30s
-          script: |
-            cat > /www/wwwroot/pdf.teacherlab.cn/start.sh << 'SCRIPT'
-            #!/bin/bash
-            cd /www/wwwroot/pdf.teacherlab.cn
-            pkill -9 -f "streamlit run app.py" 2>/dev/null
-            sleep 2
-            export PATH=/usr/local/bin:$PATH
-            if [ -d "venv" ]; then
-              source /www/wwwroot/pdf.teacherlab.cn/venv/bin/activate
-            fi
-            python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 >> streamlit.log 2>&1
-            SCRIPT
-            chmod +x /www/wwwroot/pdf.teacherlab.cn/start.sh
-            pkill -9 -f "streamlit run app.py" 2>/dev/null || true
-            cd /www/wwwroot/pdf.teacherlab.cn
-            nohup ./start.sh &
-            echo "Started"
+        run: |
+          ssh root@${{ secrets.SERVER_IP }} "cat > /www/wwwroot/pdf.teacherlab.cn/start.sh << 'SCRIPT'
+          #!/bin/bash
+          cd /www/wwwroot/pdf.teacherlab.cn
+          pkill -9 -f \"streamlit run app.py\" 2>/dev/null || true
+          sleep 2
+          if [ -d \"venv\" ]; then
+            source /www/wwwroot/pdf.teacherlab.cn/venv/bin/activate
+          fi
+          nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 >> streamlit.log 2>&1 &
+          SCRIPT
+          chmod +x /www/wwwroot/pdf.teacherlab.cn/start.sh
+          /www/wwwroot/pdf.teacherlab.cn/start.sh
+          echo Started"
 
       - name: Wait and health check
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            sleep 10
-            for i in 1 2 3 4 5; do
-              if curl -sf http://localhost:8501/_stcore/health >/dev/null 2>&1; then
-                echo "✅ 服务已启动"
-                exit 0
-              fi
-              echo "等待服务启动... $i"
-              sleep 3
-            done
-            echo "启动日志:"
-            tail -50 /www/wwwroot/pdf.teacherlab.cn/streamlit.log 2>/dev/null
-            exit 1
+        run: |
+          ssh root@${{ secrets.SERVER_IP }} "sleep 8 && curl -sf http://localhost:8501/_stcore/health || (tail -50 /www/wwwroot/pdf.teacherlab.cn/streamlit.log && exit 1)"
