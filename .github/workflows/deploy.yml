@@ -71,7 +71,7 @@ jobs:
             
             # 安装兼容 Python 3.6 的依赖版本
             echo "📦 安装项目依赖（Python 3.6 兼容版本）..."
-            python3 -m pip install streamlit==1.10.0 pypdf==3.17.4 pdf2image==1.16.3 requests==2.31.0 pandas==1.1.5 --quiet
+            python3 -m pip install streamlit==1.10.0 pypdf==3.17.4 pdf2image==1.16.3 requests==2.27.1 pandas==1.1.5 --quiet
             
             # 检查部署方式并更新
             if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
