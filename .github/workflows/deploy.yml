@@ -67,14 +67,15 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 30s
           script: |
             cd /www/wwwroot/pdf.teacherlab.cn
-            pkill -f "streamlit" || true
+            ps aux | grep "[s]treamlit" | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true
             sleep 1
-            nohup bash -c 'cd /www/wwwroot/pdf.teacherlab.cn && python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1' &
-            disown
-            sleep 3
-            echo "✅ Streamlit 启动命令已执行"
+            nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 </dev/null >streamlit.log 2>&1 &
+            sleep 2
+            echo "done"
 
       - name: Health check
         uses: appleboy/ssh-action@master
