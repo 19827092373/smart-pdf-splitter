@@ -83,19 +83,13 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 30s
           script: |
-            # 检查服务是否正常运行
-            sleep 3
-            cd /www/wwwroot/pdf.teacherlab.cn
-            if curl -f http://localhost:8501/_stcore/health > /dev/null 2>&1; then
-              echo "✅ 服务健康检查通过"
+            sleep 5
+            if curl -sf http://localhost:8501/_stcore/health; then
+              echo "✅ OK"
             else
-              echo "⚠️  服务健康检查失败，请查看日志"
-              if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
-                docker-compose logs --tail=100
-              elif [ -f "streamlit.log" ]; then
-                tail -50 streamlit.log
-              fi
-              echo "请检查服务是否正常运行"
+              cat /www/wwwroot/pdf.teacherlab.cn/streamlit.log 2>/dev/null | tail -30
               exit 1
             fi
