@@ -55,7 +55,7 @@ jobs:
             # 检查部署方式并更新
             if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
               echo "🐳 使用 Docker 方式部署..."
-              docker-compose down
+              docker-compose down || true
               docker-compose build --no-cache
               docker-compose up -d
               
@@ -67,12 +67,37 @@ jobs:
               docker-compose logs --tail=50
             elif [ -f "/etc/systemd/system/pdf-splitter.service" ]; then
               echo "🖥️  使用 systemd 方式部署..."
-              source venv/bin/activate
+              if [ -d "venv" ]; then
+                source venv/bin/activate
+              fi
               pip install -r requirements.txt --quiet
               sudo systemctl restart pdf-splitter
               sudo systemctl status pdf-splitter --no-pager
+            elif command -v streamlit &> /dev/null; then
+              echo "📦 使用 Streamlit 直接运行..."
+              # 停止可能正在运行的进程
+              pkill -f "streamlit run app.py" || true
+              sleep 2
+              
+              # 安装/更新依赖
+              if [ -d "venv" ]; then
+                source venv/bin/activate
+                pip install -r requirements.txt --quiet
+              else
+                pip3 install -r requirements.txt --quiet
+              fi
+              
+              # 后台运行 Streamlit
+              nohup streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 &
+              sleep 5
+              
+              # 检查进程
+              ps aux | grep streamlit | grep -v grep
+              echo "✅ Streamlit 已启动，日志: streamlit.log"
             else
-              echo "⚠️  未检测到部署方式，请手动部署"
+              echo "❌ 未检测到部署方式"
+              echo "请确保已安装 Docker 或 Streamlit"
+              echo "或手动部署应用"
               exit 1
             fi
             
@@ -87,13 +112,16 @@ jobs:
           script: |
             # 检查服务是否正常运行
             sleep 3
+            cd /www/wwwroot/pdf.teacherlab.cn
             if curl -f http://localhost:8501/_stcore/health > /dev/null 2>&1; then
               echo "✅ 服务健康检查通过"
             else
               echo "⚠️  服务健康检查失败，请查看日志"
-              if [ -f "docker-compose.yml" ]; then
-                cd /www/wwwroot/pdf.teacherlab.cn
+              if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
                 docker-compose logs --tail=100
+              elif [ -f "streamlit.log" ]; then
+                tail -50 streamlit.log
               fi
+              echo "请检查服务是否正常运行"
               exit 1
             fi
