@@ -21,7 +21,7 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "."
-          target: "/opt/smart-pdf-splitter"
+          target: "/www/wwwroot/pdf.teacherlab.cn"
           rm: false
           overwrite: true
           strip_components: 0
@@ -33,7 +33,7 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /opt/smart-pdf-splitter
+            cd /www/wwwroot/pdf.teacherlab.cn
             rm -rf .github
             rm -rf .git
             rm -rf .gitignore
@@ -50,7 +50,7 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /opt/smart-pdf-splitter
+            cd /www/wwwroot/pdf.teacherlab.cn
             
             # 检查部署方式并更新
             if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
@@ -92,7 +92,7 @@ jobs:
             else
               echo "⚠️  服务健康检查失败，请查看日志"
               if [ -f "docker-compose.yml" ]; then
-                cd /opt/smart-pdf-splitter
+                cd /www/wwwroot/pdf.teacherlab.cn
                 docker-compose logs --tail=100
               fi
               exit 1
