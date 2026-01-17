@@ -43,7 +43,7 @@ jobs:
             rm -rf sync.sh
             rm -rf update.sh
 
-      - name: Deploy application
+      - name: Install dependencies and deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -51,6 +51,23 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /www/wwwroot/pdf.teacherlab.cn
+            
+            # 检查并安装 Python 和 pip
+            if ! command -v python3 &> /dev/null; then
+              echo "📦 安装 Python3..."
+              apt-get update -qq
+              apt-get install -y python3 python3-pip
+            fi
+            
+            # 检查并安装 Streamlit
+            if ! command -v streamlit &> /dev/null; then
+              echo "📦 安装 Streamlit..."
+              pip3 install streamlit --quiet
+            fi
+            
+            # 安装项目依赖
+            echo "📦 安装项目依赖..."
+            pip3 install -r requirements.txt --quiet
             
             # 检查部署方式并更新
             if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
@@ -69,36 +86,29 @@ jobs:
               echo "🖥️  使用 systemd 方式部署..."
               if [ -d "venv" ]; then
                 source venv/bin/activate
+                pip install -r requirements.txt --quiet
               fi
-              pip install -r requirements.txt --quiet
               sudo systemctl restart pdf-splitter
               sudo systemctl status pdf-splitter --no-pager
-            elif command -v streamlit &> /dev/null; then
+            else
               echo "📦 使用 Streamlit 直接运行..."
               # 停止可能正在运行的进程
               pkill -f "streamlit run app.py" || true
               sleep 2
-              
-              # 安装/更新依赖
-              if [ -d "venv" ]; then
-                source venv/bin/activate
-                pip install -r requirements.txt --quiet
-              else
-                pip3 install -r requirements.txt --quiet
-              fi
               
               # 后台运行 Streamlit
               nohup streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 &
               sleep 5
               
               # 检查进程
-              ps aux | grep streamlit | grep -v grep
-              echo "✅ Streamlit 已启动，日志: streamlit.log"
-            else
-              echo "❌ 未检测到部署方式"
-              echo "请确保已安装 Docker 或 Streamlit"
-              echo "或手动部署应用"
-              exit 1
+              if ps aux | grep -v grep | grep "streamlit run app.py" > /dev/null; then
+                echo "✅ Streamlit 已启动"
+                ps aux | grep streamlit | grep -v grep
+              else
+                echo "❌ Streamlit 启动失败，查看日志:"
+                tail -50 streamlit.log
+                exit 1
+              fi
             fi
             
             echo "✅ 部署完成！"
