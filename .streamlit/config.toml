@@ -1,6 +1,22 @@
 [server]
 headless = true
+maxUploadSize = 200
 
 [browser]
 gatherUsageStats = false
 serverAddress = "localhost"
+
+[theme]
+primaryColor = "#059669"
+backgroundColor = "#FAFAFA"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#171717"
+font = "sans serif"
+
+[theme.sidebar]
+widgetBorderColor = "#E0E0E0"
+skeletonBackgroundColor = "#F0F0F0"
+widgetBackgroundColor = "#FFFFFF"
+
+[logger]
+level = "info"

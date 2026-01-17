@@ -1,0 +1,99 @@
+name: Deploy to Aliyun
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "."
+          target: "/opt/smart-pdf-splitter"
+          rm: false
+          overwrite: true
+          strip_components: 0
+      
+      - name: Clean up unnecessary files on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/smart-pdf-splitter
+            rm -rf .github
+            rm -rf .git
+            rm -rf .gitignore
+            rm -rf .claude
+            rm -rf *.md
+            rm -rf deploy.sh
+            rm -rf sync.sh
+            rm -rf update.sh
+
+      - name: Deploy application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/smart-pdf-splitter
+            
+            # 检查部署方式并更新
+            if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
+              echo "🐳 使用 Docker 方式部署..."
+              docker-compose down
+              docker-compose build --no-cache
+              docker-compose up -d
+              
+              # 等待服务启动
+              sleep 5
+              
+              # 检查服务状态
+              docker-compose ps
+              docker-compose logs --tail=50
+            elif [ -f "/etc/systemd/system/pdf-splitter.service" ]; then
+              echo "🖥️  使用 systemd 方式部署..."
+              source venv/bin/activate
+              pip install -r requirements.txt --quiet
+              sudo systemctl restart pdf-splitter
+              sudo systemctl status pdf-splitter --no-pager
+            else
+              echo "⚠️  未检测到部署方式，请手动部署"
+              exit 1
+            fi
+            
+            echo "✅ 部署完成！"
+
+      - name: Health check
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            # 检查服务是否正常运行
+            sleep 3
+            if curl -f http://localhost:8501/_stcore/health > /dev/null 2>&1; then
+              echo "✅ 服务健康检查通过"
+            else
+              echo "⚠️  服务健康检查失败，请查看日志"
+              if [ -f "docker-compose.yml" ]; then
+                cd /opt/smart-pdf-splitter
+                docker-compose logs --tail=100
+              fi
+              exit 1
+            fi

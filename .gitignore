@@ -7,6 +7,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+venv/
+env/
 
 # Streamlit
 .streamlit/secrets.toml
@@ -17,6 +19,9 @@ build/
 *.swp
 *.swo
 
+# GitHub Actions（保留工作流文件）
+# .github/workflows/ 不忽略
+
 # OS
 .DS_Store
 Thumbs.db
@@ -25,3 +30,12 @@ Thumbs.db
 tmpclaude*
 *.tmp
 *.log
+
+# 测试文件
+test_*.py
+*.zip
+*.pdf
+
+# 上传文件目录
+uploads/
+output/
