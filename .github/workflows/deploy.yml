@@ -49,7 +49,8 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
-          script_stop: false
+          timeout: 60s
+          command_timeout: 30s
           script: |
             cat > /www/wwwroot/pdf.teacherlab.cn/start.sh << 'SCRIPT'
             #!/bin/bash
