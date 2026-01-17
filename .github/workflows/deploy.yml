@@ -25,44 +25,14 @@ jobs:
         run: scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r ./* root@${{ secrets.SERVER_IP }}:/www/wwwroot/pdf.teacherlab.cn/
 
       - name: Stop existing streamlit
-        run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} '
-            # Get current PID to exclude it from pkill
-            mypid=$$
-            pkill -9 -f "streamlit.*app.py" 2>/dev/null || true
-            sleep 2
-            echo "Stopped existing streamlit processes"
-          '
+        run: ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} "pkill -9 -f 'streamlit.*app.py' 2>/dev/null || true; sleep 2; echo 'Stopped existing streamlit processes'"
 
       - name: Clean and restart service
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} '
-            cd /www/wwwroot/pdf.teacherlab.cn || exit 1
-            echo "Cleaning up unnecessary files..."
-            rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh start.sh 2>/dev/null
-            # Also clean up old streamlit config that may have invalid options
-            rm -rf .streamlit 2>/dev/null
-
-            echo "Starting streamlit..."
-            if [ -d venv ]; then
-              source venv/bin/activate
-              echo "Using virtual environment"
-            fi
-            nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 &
-            echo "Streamlit started with PID: $!"
-          '
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@${{ secrets.SERVER_IP }} "cd /www/wwwroot/pdf.teacherlab.cn || exit 1; echo 'Cleaning up unnecessary files...'; rm -rf .github .git .gitignore .claude *.md deploy.sh sync.sh update.sh start.sh 2>/dev/null; rm -rf .streamlit 2>/dev/null; echo 'Starting streamlit...'; if [ -d venv ]; then source venv/bin/activate && echo 'Using virtual environment'; fi; nohup python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 & echo 'Streamlit started with PID: '\$!"
 
       - name: Health check
         run: |
           echo "Waiting 30 seconds for Streamlit to fully start..."
           sleep 30
-          ssh -o StrictHostKeyChecking=no root@${{ secrets.SERVER_IP }} '
-            echo "Checking Streamlit health..."
-            if curl -sf --max-time 10 http://localhost:8501/_stcore/health; then
-              echo "Health check passed!"
-            else
-              echo "Health check failed, showing logs:"
-              tail -100 /www/wwwroot/pdf.teacherlab.cn/streamlit.log
-              exit 1
-            fi
-          '
+          ssh -o StrictHostKeyChecking=no root@${{ secrets.SERVER_IP }} "echo 'Checking Streamlit health...'; if curl -sf --max-time 10 http://localhost:8501/_stcore/health; then echo 'Health check passed!'; else echo 'Health check failed, showing logs:'; tail -100 /www/wwwroot/pdf.teacherlab.cn/streamlit.log; exit 1; fi"
