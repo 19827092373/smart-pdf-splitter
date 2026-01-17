@@ -43,7 +43,7 @@ jobs:
             rm -rf sync.sh
             rm -rf update.sh
 
-      - name: Install dependencies and deploy
+      - name: Install dependencies
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -51,71 +51,30 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /www/wwwroot/pdf.teacherlab.cn
-            
-            # 检查 Python 版本
-            PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2)
-            echo "当前 Python 版本: $PYTHON_VERSION"
-            
-            # 升级 pip
+            echo "当前 Python 版本: $(python3 --version)"
             python3 -m pip install --upgrade pip --quiet
-            
-            # 安装系统依赖（Poppler）- 兼容 CentOS 和 Ubuntu
             if ! command -v pdftoppm &> /dev/null; then
               echo "📦 安装 Poppler..."
-              if command -v yum &> /dev/null; then
-                yum install -y poppler-utils
-              elif command -v apt-get &> /dev/null; then
-                apt-get update -qq && apt-get install -y poppler-utils
-              fi
+              yum install -y poppler-utils || apt-get install -y poppler-utils
             fi
-            
-            # 安装兼容 Python 3.6 的依赖版本
-            echo "📦 安装项目依赖（Python 3.6 兼容版本）..."
+            echo "📦 安装项目依赖..."
             python3 -m pip install streamlit==1.10.0 pypdf==3.17.4 pdf2image==1.16.3 requests==2.27.1 pandas==1.1.5 --quiet
-            
-            # 检查部署方式并更新
-            if [ -f "docker-compose.yml" ] && command -v docker-compose &> /dev/null; then
-              echo "🐳 使用 Docker 方式部署..."
-              docker-compose down || true
-              docker-compose build --no-cache
-              docker-compose up -d
-              
-              # 等待服务启动
-              sleep 5
-              
-              # 检查服务状态
-              docker-compose ps
-              docker-compose logs --tail=50
-            elif [ -f "/etc/systemd/system/pdf-splitter.service" ]; then
-              echo "🖥️  使用 systemd 方式部署..."
-              if [ -d "venv" ]; then
-                source venv/bin/activate
-                pip install -r requirements.txt --quiet
-              fi
-              sudo systemctl restart pdf-splitter
-              sudo systemctl status pdf-splitter --no-pager
-            else
-              echo "📦 使用 Streamlit 直接运行..."
-              # 停止可能正在运行的进程
-              pkill -f "streamlit run app.py" || true
-              sleep 2
-              
-              # 后台运行 Streamlit（彻底脱离 SSH 会话）
-              nohup setsid python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1 < /dev/null &
-              sleep 5
-              
-              # 检查进程
-              if ps aux | grep -v grep | grep "streamlit run app.py" > /dev/null; then
-                echo "✅ Streamlit 已启动"
-                ps aux | grep streamlit | grep -v grep
-              else
-                echo "❌ Streamlit 启动失败，查看日志:"
-                tail -50 streamlit.log
-                exit 1
-              fi
-            fi
-            
-            echo "✅ 部署完成！"
+            echo "✅ 依赖安装完成"
+
+      - name: Start Streamlit
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /www/wwwroot/pdf.teacherlab.cn
+            pkill -f "streamlit" || true
+            sleep 1
+            nohup bash -c 'cd /www/wwwroot/pdf.teacherlab.cn && python3 -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 > streamlit.log 2>&1' &
+            disown
+            sleep 3
+            echo "✅ Streamlit 启动命令已执行"
 
       - name: Health check
         uses: appleboy/ssh-action@master
