@@ -70,6 +70,38 @@ if 'model_name' not in st.session_state:
     st.session_state.model_name = 'gpt-4o'
 
 # ==================== 从localStorage加载API设置 ====================
+# 兼容新旧版本 Streamlit 的 query_params API
+def get_query_params():
+    """兼容新旧版本 Streamlit 获取 URL 参数"""
+    try:
+        # 新版本 Streamlit (>= 1.30)
+        return dict(st.query_params)
+    except AttributeError:
+        # 旧版本 Streamlit
+        try:
+            params = st.experimental_get_query_params()
+            # 旧版返回的是 dict of lists，转换为 dict of strings
+            return {k: v[0] if v else '' for k, v in params.items()}
+        except:
+            return {}
+
+def clear_query_params(keys):
+    """兼容新旧版本 Streamlit 清除 URL 参数"""
+    try:
+        # 新版本 Streamlit (>= 1.30)
+        for key in keys:
+            if key in st.query_params:
+                del st.query_params[key]
+    except AttributeError:
+        # 旧版本 Streamlit
+        try:
+            current = st.experimental_get_query_params()
+            for key in keys:
+                current.pop(key, None)
+            st.experimental_set_query_params(**current)
+        except:
+            pass
+
 # 使用JavaScript在页面加载时读取localStorage并设置到session_state
 if 'api_settings_loaded' not in st.session_state:
     # 注入JavaScript来读取localStorage并通过URL参数传递
@@ -101,7 +133,7 @@ if 'api_settings_loaded' not in st.session_state:
     st.components.v1.html(load_settings_js, height=0)
     
     # 从URL参数读取设置（如果存在）
-    query_params = st.query_params
+    query_params = get_query_params()
     if query_params.get('loaded_settings') == '1':
         if 'provider' in query_params:
             st.session_state.selected_provider = query_params.get('provider', 'OpenAI')
@@ -112,9 +144,7 @@ if 'api_settings_loaded' not in st.session_state:
         if 'model' in query_params:
             st.session_state.model_name = query_params.get('model', 'gpt-4o')
         # 清除URL参数（避免URL过长）
-        for key in ['loaded_settings', 'provider', 'api_key', 'base_url', 'model']:
-            if key in query_params:
-                del query_params[key]
+        clear_query_params(['loaded_settings', 'provider', 'api_key', 'base_url', 'model'])
     
     st.session_state.api_settings_loaded = True
 
